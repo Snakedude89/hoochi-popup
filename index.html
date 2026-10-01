@@ -838,6 +838,15 @@ async function assign(t, a){
   sms(t.phone, `You're up, ${t.name.split(" ")[0]}! Station ${a.station} with ${a.name}. Come now, your spot's held for 10 min.`);
   ui.modal = null; render();
 }
+async function takeNext(a){
+  const nextUp = queueOrder()[0];
+  if(!nextUp){ toast("Nobody waiting"); return; }
+  if(artistBusy(a.id)){ toast("Finish your current one first"); return; }
+  const fresh = Store.tickets[nextUp.id];
+  if(!fresh || fresh.status!=="checked_in"){ toast("Someone just took them, refreshing"); render(); return; }
+  await assign(fresh, a);
+  toast(`${fresh.ref} is yours, station ${a.station}`);
+}
 async function noShow(t){
   const n = (t.no_shows||0)+1;
   if(n>=3){ await Store.patchTicket(t.id, {status:"refunded", refunded_at: now(), no_shows:n, artist:null, station:null}); sms(t.phone, `We called you three times for ${t.ref}. We've refunded ${money(t.amount)} to your card.`); return; }
@@ -868,10 +877,14 @@ function renderAssign(t){
   </div></div>`);
   el.querySelector("#x").onclick = () => { ui.modal=null; render(); };
   const opts = el.querySelector("#opts");
+  const idleSince = a => { const last = list().filter(x=>x.artist===a.id && x.done_at).map(x=>x.done_at); return last.length? Math.max(...last) : 0; };
+  const freeArts = arts.filter(a=>a.active && !artistBusy(a.id)).sort((a,b)=> idleSince(a)-idleSince(b));
+  const suggested = freeArts[0] ? freeArts[0].id : null;
   arts.forEach(a => {
     const busy = artistBusy(a.id);
     const dis = !a.active || (busy && busy.id!==t.id);
-    const b = h(`<button class="opt ${dis?"dis":""}" ${dis?"disabled":""}><span><b>${esc(a.name)}</b><br><small>Station ${a.station}</small></span><small>${!a.active?"Off shift": busy? "Busy with "+esc(busy.ref) : "Free now"}</small></button>`);
+    const sug = a.id===suggested;
+    const b = h(`<button class="opt ${dis?"dis":""} ${sug?"on":""}" ${dis?"disabled":""}><span><b>${esc(a.name)}</b>${sug?' <span class="pill coral" style="margin-left:6px">Suggested</span>':''}<br><small>Station ${a.station}</small></span><small>${!a.active?"Off shift": busy? "Busy with "+esc(busy.ref) : (idleSince(a)? "Free "+Math.max(1,Math.round((now()-idleSince(a))/60000))+" min" : "Free now")}</small></button>`);
     b.onclick = () => assign(t, a);
     opts.appendChild(b);
   });
@@ -930,7 +943,12 @@ function renderArtist(){
     const doneToday = sorted().filter(t=>t.artist===me.id && t.status==="done").length;
     const waiting = queueOrder().length;
     main.appendChild(h(`<div class="stats"><div class="stat"><span class="eyebrow">Your station</span><b>${me.station}</b><small>${me.active?"on shift":"off shift"}</small></div><div class="stat"><span class="eyebrow">Done today</span><b>${doneToday}</b></div><div class="stat"><span class="eyebrow">Waiting overall</span><b class="coral">${waiting}</b></div></div>`));
-    if(!mine.length) main.appendChild(h(`<div class="empty"><div class="display">Nothing assigned</div>The counter sends your next person here. You'll see their design, placement and anything flagged, nothing else.</div>`));
+    if(!mine.length){
+      const nextUp = queueOrder()[0];
+      const box = h(`<div class="empty"><div class="display">Nothing assigned</div>${nextUp ? `Next in line is <b>${esc(nextUp.ref)}</b> (${esc(nextUp.name)}, ${nextUp.designs.join(" · ")}).${nextUp.form&&nextUp.form.flagged?' <span class="flag">Form flagged, check with the counter first.</span>':''}` : "The queue's empty. The counter sends people here, or you can take the next one yourself when someone's waiting."}<div style="margin-top:14px"></div></div>`);
+      if(nextUp && me.active){ const b = h(`<button class="btn">Take next · ${esc(nextUp.ref)}</button>`); b.onclick = () => takeNext(me); box.lastElementChild.appendChild(b); }
+      main.appendChild(box);
+    }
     mine.forEach(t => {
       const f = t.form||{};
       const c = h(`<div class="card stack">
