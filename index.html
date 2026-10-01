@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e87058">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hoochi Mama">
+<title>Hoochi Mama Pop Ups</title>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Caveat:wght@600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* Layout: one dark festival screen; customer flow is a single scrolling column with a sticky action bar,
+   counter is a dense board with a stats strip. Single committed dark look, poster palette. */
+:root{
+  --ink:#15120f; --ink-2:#1e1a16; --ink-3:#2a241f; --line:#3a322b;
+  --bone:#f1eae0; --bone-dim:#b7ac9f; --bone-faint:#7f7569;
+  --coral:#e87058; --coral-deep:#c9533a; --rust:#8b4c42;
+  --ok:#86c79a; --warn:#e6b35a; --bad:#e35d5d;
+  --display:"Anton", Impact, "Arial Narrow Bold", sans-serif;
+  --body:"Barlow", "Helvetica Neue", Arial, sans-serif;
+  --hand:"Caveat", "Comic Sans MS", cursive;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+html,body{height:100%}
+body{margin:0;background:var(--ink);color:var(--bone);font-family:var(--body);font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.07;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");z-index:0}
+#app{position:relative;z-index:1;min-height:100%;display:flex;flex-direction:column}
+h1,h2,h3{margin:0;text-wrap:balance}
+.display{font-family:var(--display);font-weight:400;letter-spacing:.01em;text-transform:uppercase;line-height:.95}
+.hand{font-family:var(--hand);color:var(--coral);font-size:1.25rem;transform:rotate(-4deg);display:inline-block}
+.eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bone-dim);font-weight:600}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.tile:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
+input,select,textarea{font:inherit;color:var(--bone);background:var(--ink-3);border:1px solid var(--line);border-radius:6px;padding:12px 14px;width:100%}
+textarea{min-height:72px;resize:vertical}
+label.field{display:flex;flex-direction:column;gap:6px;font-size:.85rem;color:var(--bone-dim);font-weight:600}
+label.check{display:flex;gap:12px;align-items:flex-start;font-size:.95rem;color:var(--bone);padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--ink-2)}
+label.check input{width:22px;height:22px;flex:0 0 auto;margin:1px 0 0;accent-color:var(--coral)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:999px;font-weight:700;font-size:1rem;background:var(--coral);color:#1a0f0b;transition:transform .08s ease}
+.btn:active{transform:scale(.98)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--bone)}
+.btn.sm{padding:8px 14px;font-size:.85rem}
+.btn.danger{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+.btn.ok{background:var(--ok);color:#0f1a12}
+.wrap{width:100%;max-width:560px;margin:0 auto;padding-inline:16px}
+.wrap.wide{max-width:1100px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px}
+.logo{display:flex;align-items:center;gap:10px}
+.stamp{font-family:var(--display);font-size:.85rem;line-height:.9;text-transform:uppercase;background:var(--coral);color:#1a0f0b;padding:6px 8px;border-radius:4px;transform:rotate(-6deg);letter-spacing:.02em;text-align:center}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--bone-dim);white-space:nowrap}
+.pill.live{border-color:var(--ok);color:var(--ok)}
+.pill.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(134,199,154,.25)}
+.pill.paused{border-color:var(--warn);color:var(--warn)}
+.pill.coral{border-color:var(--coral);color:var(--coral)}
+.pill.ok{border-color:var(--ok);color:var(--ok)}
+.pill.bad{border-color:var(--bad);color:var(--bad)}
+.pill.warn{border-color:var(--warn);color:var(--warn)}
+.card{background:var(--ink-2);border:1px solid var(--line);border-radius:12px;padding:16px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.muted{color:var(--bone-dim)}
+.small{font-size:.85rem}
+.tiny{font-size:.75rem}
+hr.rule{border:0;border-top:1px dashed var(--line);margin:4px 0}
+.tabular{font-variant-numeric:tabular-nums}
+
+/* ---------- customer: hero + gallery ---------- */
+.hero{padding-block:8px 6px}
+.hero .display{font-size:clamp(2.6rem,12vw,4.2rem);color:var(--coral)}
+.hero .display span{color:var(--bone);display:block;font-size:clamp(2rem,9vw,3.2rem)}
+.pricebox{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--coral);border-radius:6px;overflow:hidden;margin-top:12px}
+.pricebox div{padding:10px 6px;text-align:center;border-right:1px solid var(--coral)}
+.pricebox div:last-child{border-right:0}
+.pricebox b{display:block;font-family:var(--display);font-size:1.4rem;line-height:1;color:var(--coral)}
+.pricebox small{display:block;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bone)}
+.gal-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin-top:18px}
+.gal-head h2{font-size:1.1rem;letter-spacing:.08em}
+.jump{display:flex;gap:6px;align-items:center}
+.jump input{width:72px;padding:8px 10px;text-transform:uppercase;text-align:center;font-weight:700}
+.rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:10px 0 6px;margin-inline:-16px;padding-inline:16px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.sheet{flex:0 0 100%;scroll-snap-align:center;border:2px solid var(--bone);border-radius:10px;padding:8px;background:#0f0d0a;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:100%}
+.sheet.alt{border-color:var(--rust)}
+.sheet .caption{grid-column:1/-1;display:flex;justify-content:space-between;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bone-dim);padding:2px 4px 0}
+.tile{position:relative;aspect-ratio:1;border-radius:6px;background-image:url("flash-tiles-v2.jpg");background-size:1500% 1100%;background-color:#0f0d0a;border:2px solid transparent;padding:0;overflow:hidden;transition:border-color .12s, transform .12s}
+.tile .id{position:absolute;left:0;bottom:0;font-family:var(--display);font-size:.85rem;letter-spacing:.05em;color:#1a0f0b;background:var(--coral);padding:2px 6px 1px;border-radius:0 6px 0 4px;line-height:1.1}
+.tile.sel .id{background:var(--bone)}
+.tile.sel{border-color:var(--coral);transform:scale(.96);box-shadow:0 0 0 2px rgba(232,112,88,.35) inset}
+.tile.sel::after{content:"✓";position:absolute;left:4px;top:3px;width:18px;height:18px;border-radius:50%;background:var(--coral);color:#1a0f0b;font-size:.75rem;font-weight:800;display:grid;place-items:center}
+.dots{display:flex;justify-content:center;gap:6px;padding:8px 0 90px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--coral)}
+.actionbar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top, var(--ink) 70%, rgba(21,18,15,0));z-index:5}
+.actionbar .inner{max-width:528px;margin:0 auto;display:flex;align-items:center;gap:12px;background:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:8px 8px 8px 18px}
+.actionbar .sum{flex:1;min-width:0}
+.actionbar .sum b{font-family:var(--display);font-size:1.5rem;color:var(--coral);letter-spacing:.02em}
+.actionbar .sum span{display:block;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bone-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.picked{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--ink-3);border:1px solid var(--line);border-radius:8px;padding:4px 8px 4px 4px;font-size:.85rem;font-weight:700}
+.chip .thumb{width:36px;height:36px;border-radius:4px;background-image:url("flash-tiles-v2.jpg");background-size:1500% 1100%;background-color:#0f0d0a;flex:0 0 auto}
+.chip.lg .thumb{width:56px;height:56px}
+.chip button{color:var(--bone-dim);padding:0 4px;font-size:1.1rem;line-height:1}
+.overlay{position:fixed;inset:0;background:rgba(10,8,6,.92);z-index:20;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.overlay img{display:block;max-width:100%;height:auto;margin:0 auto;border-radius:8px}
+.overlay .bar{display:flex;justify-content:space-between;align-items:center}
+.steps{display:flex;gap:6px;align-items:center;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bone-faint);padding-block:10px}
+.steps b{color:var(--coral)}
+.steps i{flex:1;border-top:1px dashed var(--line)}
+.terms{font-size:.85rem;color:var(--bone-dim);line-height:1.45}
+.total{display:flex;justify-content:space-between;align-items:baseline;padding:14px 16px;border:2px solid var(--coral);border-radius:8px}
+.total b{font-family:var(--display);font-size:2rem;color:var(--coral)}
+/* stripe sheet */
+.paysheet{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.6)}
+.paysheet .box{background:#fff;color:#1a1f36;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:20px 20px calc(24px + env(safe-area-inset-bottom,0px));font-family:var(--body)}
+.paysheet .box .eyebrow{color:#697386}
+.paysheet input{background:#fff;color:#1a1f36;border:1px solid #d9dce3}
+.paysheet .pay{width:100%;padding:14px;border-radius:8px;background:#635bff;color:#fff;font-weight:700;margin-top:12px}
+.paysheet .test{display:inline-block;background:#fff3cd;color:#8a6d00;font-size:.72rem;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:4px}
+.spin{width:18px;height:18px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* ticket */
+.ticket{border:2px solid var(--bone);border-radius:14px;overflow:hidden;background:var(--ink-2)}
+.ticket .head{background:var(--coral);color:#1a0f0b;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.ticket .head .display{font-size:1.4rem}
+.ticket .ref{font-family:var(--display);font-size:clamp(3rem,14vw,4.4rem);letter-spacing:.03em;line-height:1;text-align:center;padding:14px 0 0;color:var(--bone)}
+.ticket .qr{display:flex;justify-content:center;padding:10px 0 4px}
+.ticket .qr > div{background:#fff;padding:10px;border-radius:8px;line-height:0}
+.ticket .body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.tear{border-top:2px dashed var(--line);position:relative;margin:4px -16px}
+.status{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:10px;background:var(--ink-3);border-left:4px solid var(--coral)}
+.status .big{font-family:var(--display);font-size:1.3rem;letter-spacing:.02em}
+.status.up{background:#2a1f1a;border-left-color:var(--coral);box-shadow:0 0 0 1px var(--coral) inset}
+.status.done{border-left-color:var(--ok)}
+.status.warn{border-left-color:var(--warn)}
+.ladder{display:flex;gap:4px}
+.ladder span{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.ladder span.on{background:var(--coral)}
+.ladder span.ok{background:var(--ok)}
+.ladder-labels{display:flex;justify-content:space-between;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--bone-faint)}
+.yn{display:flex;gap:8px}
+.yn button{flex:1;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--ink-3);font-weight:700}
+.yn button.on{border-color:var(--coral);color:var(--coral)}
+.sig{font-family:var(--hand);font-size:1.6rem;padding:8px 14px}
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--bone);color:var(--ink);padding:10px 16px;border-radius:999px;font-weight:700;font-size:.9rem;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.4);white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
+.sms{background:#0f0d0a;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:.85rem;display:flex;gap:10px;align-items:flex-start}
+.sms .from{font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bone-faint);display:block}
+.sms .bubble{background:#2b3a2e;color:#e9f1ea;border-radius:12px 12px 12px 2px;padding:8px 10px;flex:1;min-width:0}
+footer.site{padding-block:28px 24px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.75rem;color:var(--bone-faint);border-top:1px solid var(--line);margin-top:auto}
+footer.site a{color:var(--bone-dim)}
+footer.site .links{display:flex;gap:14px}
+
+/* ---------- staff: counter ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat .eyebrow{font-size:.62rem}
+.stat b{display:block;font-family:var(--display);font-size:1.8rem;line-height:1.05;margin-top:4px;color:var(--bone)}
+.stat b.coral{color:var(--coral)}
+.stat small{color:var(--bone-dim);font-size:.75rem}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.toolbar input{max-width:280px;padding:10px 12px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{padding:8px 12px;border-radius:999px;border:1px solid var(--line);font-size:.82rem;font-weight:700;color:var(--bone-dim)}
+.tabs button.on{border-color:var(--coral);color:var(--coral)}
+.tabs button b{color:var(--bone);margin-left:4px}
+.board{display:flex;flex-direction:column;gap:8px}
+.trow{display:grid;grid-template-columns:84px 1fr auto;gap:12px;align-items:center;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.trow.up{border-color:var(--coral)}
+.trow .ref{font-family:var(--display);font-size:1.35rem;letter-spacing:.03em;line-height:1;white-space:nowrap}
+.trow .ref small{display:block;font-family:var(--body);font-size:.65rem;letter-spacing:.08em;color:var(--bone-faint);margin-top:3px}
+.trow .who{min-width:0;display:flex;flex-direction:column;gap:6px}
+.trow .who .name{font-weight:700;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.trow .who .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:.78rem;color:var(--bone-dim)}
+.minis{display:flex;gap:4px}
+.mini{width:30px;height:30px;border-radius:4px;background-image:url("flash-tiles-v2.jpg");background-size:1500% 1100%;background-color:#0f0d0a;border:1px solid var(--line)}
+.trow .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.trow .acts .btn.sm{padding:8px 12px}
+.icon-btn{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:.78rem;color:var(--bone-dim)}
+@media (max-width:640px){.trow{grid-template-columns:62px 1fr}.trow .acts{grid-column:1/-1;justify-content:flex-start}}
+.roster{display:flex;gap:8px;flex-wrap:wrap}
+.roster button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--ink-2);min-width:120px;text-align:left}
+.roster button.off{opacity:.45}
+.roster button b{font-weight:700}
+.roster button small{font-size:.7rem;color:var(--bone-dim);letter-spacing:.06em;text-transform:uppercase}
+.roster button .busy{color:var(--coral)}
+.modal{position:fixed;inset:0;background:rgba(10,8,6,.8);z-index:25;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal .box{background:var(--ink-2);border:1px solid var(--line);border-radius:14px;width:100%;max-width:440px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.opt{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--ink-3);width:100%;text-align:left}
+.opt.on{border-color:var(--coral)}
+.opt.dis{opacity:.4}
+.opt small{color:var(--bone-dim);font-size:.75rem}
+.empty{padding:34px 16px;text-align:center;color:var(--bone-dim);border:1px dashed var(--line);border-radius:12px}
+.empty .display{color:var(--bone);font-size:1.4rem;margin-bottom:6px}
+.switch{display:inline-flex;gap:0;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.switch a{padding:6px 12px;font-size:.75rem;font-weight:700;color:var(--bone-dim);text-decoration:none;letter-spacing:.06em;text-transform:uppercase}
+.switch a.on{background:var(--coral);color:#1a0f0b}
+.form-section{display:flex;flex-direction:column;gap:12px}
+.note{font-size:.8rem;color:var(--bone-dim);border-left:3px solid var(--rust);padding-left:10px}
+.det{font-size:.85rem;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;color:var(--bone-dim)}
+.det b{color:var(--bone);font-weight:600}
+.flag{color:var(--warn)}
+.synced{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--bone-faint)}
+.synced.on{color:var(--ok)}
+</style>
+
+</head>
+<body>
+<div id="app" aria-live="polite"></div>
+
+<script>
+/* ============ constants ============ */
+const COLS = "ABCDEFGHIJKLMNO".split("");
+const ROWS = 11;
+const ALL_IDS = [];
+for (let r = 1; r <= ROWS; r++) for (const c of COLS) ALL_IDS.push(c + r);
+const PRICES = {1: 100, 2: 150, 3: 200};
+const MAX_PICK = 3;
+const DEFAULT_SETTINGS = {
+  name: "Bad Choices · SEXPO Perth",
+  paused: false,
+  minutesPerTattoo: 12,
+  nextNo: 0,
+  artists: [
+    {id: "a1", name: "Tash", station: 1, active: true},
+    {id: "a2", name: "Rory", station: 2, active: true},
+    {id: "a3", name: "Mei", station: 3, active: true}
+  ]
+};
+const STATUS = {
+  queued:      {label: "Awaiting check-in", step: 0},
+  checked_in:  {label: "In queue",          step: 1},
+  assigned:    {label: "Ready for artist",  step: 2},
+  in_progress: {label: "In the chair",      step: 3},
+  done:        {label: "Complete",          step: 4},
+  no_show:     {label: "No-show",           step: 1},
+  refunded:    {label: "Refunded",          step: 0}
+};
+
+function spritePos(id){
+  const col = COLS.indexOf(id[0]); const row = parseInt(id.slice(1),10)-1;
+  return `background-position:${(col/14*100).toFixed(3)}% ${(row/10*100).toFixed(3)}%`;
+}
+function priceFor(n){ return PRICES[Math.min(Math.max(n,1),3)] || 0; }
+function money(n){ return "A$" + (n||0).toLocaleString("en-AU"); }
+function now(){ return Date.now(); }
+function fmtTime(ts){ if(!ts) return ""; const d=new Date(ts); return d.toLocaleTimeString("en-AU",{hour:"numeric",minute:"2-digit"}); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function uid(){ return "t" + now().toString(36) + Math.random().toString(36).slice(2,7); }
+function ls(k, v){ try{ if(v===undefined){ const s=localStorage.getItem(k); return s? JSON.parse(s): null; } if(v===null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
+
+/* ============ store: shared db when available, local otherwise ============ */
+const Store = (() => {
+  let tickets = {};           // id -> ticket
+  let settings = {...DEFAULT_SETTINGS};
+  let backend = "local";
+  let db = null;
+  let sb = null;
+  const subs = new Set();
+  let channel = null;
+
+  function emit(){ subs.forEach(fn => { try{ fn(); }catch(e){ console.error(e);} }); }
+
+  function localLoad(){
+    tickets = ls("hm_tickets") || {};
+    settings = Object.assign({}, DEFAULT_SETTINGS, ls("hm_settings") || {});
+  }
+  function localSave(){
+    ls("hm_tickets", tickets); ls("hm_settings", settings);
+    try{ channel && channel.postMessage("sync"); }catch(e){}
+  }
+
+  async function init(){
+    localLoad();
+    try{ channel = new BroadcastChannel("hm_flash"); channel.onmessage = () => { if(backend==="local"){ localLoad(); emit(); } }; }catch(e){}
+    window.addEventListener("storage", () => { if(backend==="local"){ localLoad(); emit(); } });
+    emit();
+    // Supabase (standalone hosting): live sync across every device when keys are configured
+    try{
+      const cfg = window.HM_CONFIG || {};
+      if(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase && window.supabase.createClient){
+        sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+        backend = "supabase"; tickets = {};
+        const [tr, er] = await Promise.all([sb.from("hm_tickets").select("id,data"), sb.from("hm_event").select("data").eq("id","live").maybeSingle()]);
+        if(tr.error) throw tr.error;
+        (tr.data||[]).forEach(r => { tickets[r.id] = Object.assign({id:r.id}, r.data); });
+        if(er.data && er.data.data) settings = Object.assign({}, DEFAULT_SETTINGS, er.data.data);
+        else await sb.from("hm_event").upsert({id:"live", data: settings});
+        sb.channel("hm-live")
+          .on("postgres_changes", {event:"*", schema:"public", table:"hm_tickets"}, p => {
+            if(p.eventType==="DELETE"){ delete tickets[p.old.id]; }
+            else if(p.new){ tickets[p.new.id] = Object.assign({id:p.new.id}, p.new.data); }
+            emit();
+          })
+          .on("postgres_changes", {event:"*", schema:"public", table:"hm_event"}, p => {
+            if(p.new && p.new.id==="live"){ settings = Object.assign({}, DEFAULT_SETTINGS, p.new.data); emit(); }
+          })
+          .subscribe();
+        emit();
+        return;
+      }
+    }catch(e){ console.warn("supabase unavailable, falling back", e); backend="local"; sb=null; localLoad(); }
+    // Claude artifact store (when hosted on claude.ai); resolves later, never on first run
+    try{
+      const got = window.claude && window.claude.use ? await window.claude.use("db") : null;
+      if(got){
+        db = got; backend = "db";
+        tickets = {}; // shared truth replaces local scratch
+        db.collection("tickets").onSnapshot(snap => {
+          const next = {};
+          snap.docs.forEach(d => { if(d.exists) next[d.id] = Object.assign({id: d.id}, d.data()); });
+          tickets = next; emit();
+        }, err => { console.warn("tickets sub", err); });
+        db.doc("event/live").onSnapshot(snap => {
+          settings = Object.assign({}, DEFAULT_SETTINGS, snap.exists ? snap.data() : {});
+          emit();
+        }, err => { console.warn("settings sub", err); });
+      }
+    }catch(e){ console.warn("db unavailable", e); }
+    emit();
+  }
+
+  async function saveTicket(t){
+    tickets[t.id] = t;
+    if(backend==="db"){ try{ await db.doc("tickets/"+t.id).set(stripId(t)); }catch(e){ console.warn(e); toast("Couldn't sync, kept locally"); } }
+    else if(backend==="supabase"){ try{ const r = await sb.from("hm_tickets").upsert({id:t.id, data:stripId(t), updated_at:new Date().toISOString()}); if(r.error) throw r.error; }catch(e){ console.warn(e); toast("Couldn't sync, kept locally"); } }
+    else localSave();
+    emit();
+  }
+  async function patchTicket(id, patch){
+    const t = tickets[id]; if(!t) return;
+    const merged = Object.assign({}, t, patch);
+    tickets[id] = merged;
+    if(backend==="db"){ try{ await db.doc("tickets/"+id).set(stripId(merged)); }catch(e){ console.warn(e); } }
+    else if(backend==="supabase"){ try{ const r = await sb.from("hm_tickets").upsert({id, data:stripId(merged), updated_at:new Date().toISOString()}); if(r.error) throw r.error; }catch(e){ console.warn(e); } }
+    else localSave();
+    emit();
+  }
+  async function saveSettings(patch){
+    settings = Object.assign({}, settings, patch);
+    if(backend==="db"){ try{ await db.doc("event/live").set(settings); }catch(e){ console.warn(e); } }
+    else if(backend==="supabase"){ try{ const r = await sb.from("hm_event").upsert({id:"live", data:settings, updated_at:new Date().toISOString()}); if(r.error) throw r.error; }catch(e){ console.warn(e); } }
+    else localSave();
+    emit();
+  }
+  async function clearTickets(){
+    const ids = Object.keys(tickets);
+    tickets = {};
+    if(backend==="db"){ for(const id of ids){ try{ await db.doc("tickets/"+id).delete(); }catch(e){} } }
+    else if(backend==="supabase"){ try{ await sb.from("hm_tickets").delete().neq("id",""); }catch(e){ console.warn(e); } }
+    else localSave();
+    emit();
+  }
+  function stripId(t){ const c = Object.assign({}, t); delete c.id; return c; }
+  return {
+    init, saveTicket, patchTicket, saveSettings, clearTickets,
+    subscribe(fn){ subs.add(fn); return () => subs.delete(fn); },
+    get tickets(){ return tickets; }, get settings(){ return settings; }, get backend(){ return backend; }
+  };
+})();
+
+/* ============ queue maths ============ */
+function list(){ return Object.values(Store.tickets); }
+function sorted(){ return list().sort((a,b)=> (a.created_at||0)-(b.created_at||0)); }
+function queueOrder(){ // who's waiting, in order
+  return sorted().filter(t => t.status==="checked_in").sort((a,b)=> (a.priority||a.checked_in_at||a.created_at||0)-(b.priority||b.checked_in_at||b.created_at||0));
+}
+function activeArtists(){ return (Store.settings.artists||[]).filter(a=>a.active); }
+function artistBusy(aid){ return list().find(t => t.artist===aid && (t.status==="assigned"||t.status==="in_progress")); }
+function estWaitFor(position){ // minutes until a chair frees for position (1-based)
+  const n = Math.max(activeArtists().length, 1);
+  const per = Store.settings.minutesPerTattoo || 12;
+  const ahead = list().filter(t=>t.status==="checked_in").length; // naive but honest
+  return Math.round(((position-1)/n) * per + per/2);
+}
+function capacityLeft(){
+  const n = activeArtists().length; const per = Store.settings.minutesPerTattoo || 12;
+  const hoursLeft = 4; // demo assumption; production reads the roster's end times
+  const can = Math.floor(n * 60 / per * hoursLeft);
+  const sold = list().filter(t=>!["refunded","done"].includes(t.status)).reduce((s,t)=>s+(t.designs?t.designs.length:1),0);
+  return {can, sold, left: Math.max(can - sold, 0)};
+}
+function nextRef(){
+  const used = list().map(t=>t.no||0); const n = Math.max(Store.settings.nextNo||0, ...used, 0) + 1;
+  return {no: n, ref: "HM-" + String(n).padStart(3,"0")};
+}
+
+/* ============ tiny UI helpers ============ */
+let toastTimer=null;
+function toast(msg){
+  let el = document.getElementById("toast");
+  if(!el){ el = document.createElement("div"); el.id="toast"; el.className="toast"; document.body.appendChild(el); }
+  el.textContent = msg; el.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{ el.hidden=true; }, 2600);
+}
+function sms(to, text){ // simulated text message, shown as a bubble on the ticket and as a toast on the counter
+  const log = ls("hm_sms") || []; log.unshift({to, text, at: now()}); ls("hm_sms", log.slice(0,20));
+  toast("SMS → " + to + ": " + text);
+}
+function h(html){ const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstElementChild; }
+
+/* ============ routing ============ */
+const app = document.getElementById("app");
+function route(){ const r = (location.hash||"").replace("#",""); return ["counter","artist","admin"].includes(r) ? r : "shop"; }
+window.addEventListener("hashchange", () => { ui = {...ui, modal:null, overlay:false}; render(); window.scrollTo(0,0); });
+
+/* ============ customer state (per device) ============ */
+let ui = {
+  step: "gallery",       // gallery | details | ticket
+  picks: ls("hm_picks") || [],
+  altSheet: false,
+  overlay: false,
+  modal: null,
+  filter: "all",
+  q: "",
+  artistId: ls("hm_artist") || null,
+  form: {},
+  details: ls("hm_details") || {name:"", phone:"", email:"", adult:false, agree:false},
+  paying: false
+};
+function myTicket(){ const id = ls("hm_my_ticket"); return id ? Store.tickets[id] : null; }
+
+/* ============ render ============ */
+function render(){
+  const r = route();
+  const prev = document.activeElement && document.activeElement.id;
+  app.innerHTML = "";
+  if(r==="shop") renderShop();
+  else if(r==="counter") renderCounter();
+  else if(r==="artist") renderArtist();
+  if(ui.overlay) app.appendChild(renderPoster());
+  if(ui.modal) app.appendChild(ui.modal());
+  if(prev){ const el=document.getElementById(prev); if(el && el!==document.activeElement) try{ el.focus({preventScroll:true}); }catch(e){} }
+}
+
+function header(kind){
+  const s = Store.settings;
+  const sw = kind==="shop" ? "" : `<div class="switch">
+      <a href="#counter" class="${route()==="counter"?"on":""}">Counter</a>
+      <a href="#artist" class="${route()==="artist"?"on":""}">Artist</a>
+    </div>`;
+  return `<header class="top wrap ${kind==="shop"?"":"wide"}">
+    <div class="logo"><span class="stamp">Hoochi<br>Mama</span>
+      <div><div class="eyebrow">${esc(s.name)}</div>
+      <div class="row" style="gap:6px;margin-top:3px">
+        <span class="pill ${s.paused?"paused":"live"}">${s.paused?"Sales paused":"Live"}</span>
+        <span class="synced ${Store.backend!=="local"?"on":""}">${Store.backend!=="local"?"Synced":"This device"}</span>
+      </div></div>
+    </div>${sw}
+  </header>`;
+}
+
+/* ---------- shop ---------- */
+function renderShop(){
+  const t = myTicket();
+  if(t && ui.step!=="gallery_forced"){ ui.step = "ticket"; }
+  const page = h(`<div class="stack" style="gap:0"></div>`);
+  page.insertAdjacentHTML("beforeend", header("shop"));
+  const body = h(`<main class="wrap stack"></main>`);
+  if(ui.step==="ticket" && t) body.appendChild(renderTicket(t));
+  else if(ui.step==="details") body.appendChild(renderDetails());
+  else body.appendChild(renderGallery());
+  page.appendChild(body);
+  page.insertAdjacentHTML("beforeend", `<footer class="site wrap">
+    <span>Hoochimama Tattoo · Elysian Tattoo Co. · 18+ events · Prototype</span>
+    <span class="links"><a href="#counter">Staff</a>${t?`<a href="#" id="startover">Start over</a>`:""}</span></footer>`);
+  app.appendChild(page);
+  const so = page.querySelector("#startover"); if(so) so.onclick = e => { e.preventDefault(); ls("hm_my_ticket", null); ls("hm_picks", null); ui.picks=[]; ui.step="gallery"; render(); };
+}
+
+function renderGallery(){
+  const s = Store.settings;
+  const n = ui.picks.length;
+  const sheets = []; for(let i=0;i<ALL_IDS.length;i+=20) sheets.push(ALL_IDS.slice(i,i+20));
+  const el = h(`<section class="stack">
+    <div class="hero">
+      <h1 class="display">Bad choices <span>make the best tattoos</span></h1>
+      <div class="row" style="justify-content:space-between;margin-top:6px">
+        <span class="hand">pick up to three, naughty ♡</span>
+        <span class="pill coral">Walk-ups welcome</span>
+      </div>
+      <div class="pricebox"><div><small>One for</small><b>$100</b></div><div><small>Two for</small><b>$150</b></div><div><small>Three for</small><b>$200</b></div></div>
+    </div>
+    ${s.paused ? `<div class="status warn"><div><div class="big">Sales paused</div><div class="small muted">The queue is full for now. Check back with the counter in a bit.</div></div></div>` : ""}
+    <div class="gal-head"><h2 class="display">Flash preview</h2>
+      <form class="jump" id="jumpform"><input id="jump" placeholder="F4" maxlength="3" aria-label="Jump to design ID" autocomplete="off"><button class="btn ghost sm" type="submit">Go</button></form></div>
+    <div class="rail" id="rail"></div>
+    <div class="spread" style="padding-top:6px">
+      <button class="btn ghost sm" id="prev" aria-label="Previous sheet">← Prev</button>
+      <button class="btn ghost sm" id="poster">See the full poster</button>
+      <button class="btn ghost sm" id="next" aria-label="Next sheet">Next →</button>
+    </div>
+    <div class="dots" id="dots">${sheets.map((_,i)=>`<i class="${i===0?"on":""}"></i>`).join("")}</div>
+    <p class="tiny muted" style="text-align:center;margin:-80px 0 90px">Swipe or use the arrows · ${ALL_IDS.length} designs across ${sheets.length} sheets</p>
+  </section>`);
+  const rail = el.querySelector("#rail");
+  const stepW = () => { const sh = rail.querySelector(".sheet"); return sh ? sh.offsetWidth + 12 : rail.clientWidth; };
+  sheets.forEach((ids, i) => {
+    const sh = h(`<div class="sheet ${i%2?"alt":""}" data-i="${i}"><div class="caption"><span>Sheet ${i+1} of ${sheets.length}</span><span>${ids[0]} – ${ids[ids.length-1]}</span></div></div>`);
+    ids.forEach(id => {
+      const b = h(`<button class="tile ${ui.picks.includes(id)?"sel":""}" style="${spritePos(id)}" data-id="${id}" aria-pressed="${ui.picks.includes(id)}" aria-label="Design ${id}"><span class="id">${id}</span></button>`);
+      b.onclick = () => togglePick(id);
+      sh.appendChild(b);
+    });
+    rail.appendChild(sh);
+  });
+  el.querySelector("#poster").onclick = () => { ui.overlay=true; render(); };
+  const go = dir => { const i = Math.round(rail.scrollLeft / stepW()) + dir; rail.scrollTo({left: Math.max(0, Math.min(sheets.length-1, i)) * stepW(), behavior:"smooth"}); };
+  el.querySelector("#prev").onclick = () => go(-1);
+  el.querySelector("#next").onclick = () => go(1);
+  rail.addEventListener("wheel", e => { if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){ e.preventDefault(); rail.scrollLeft += e.deltaY; } }, {passive:false});
+  rail.addEventListener("scroll", () => {
+    const i = Math.round(rail.scrollLeft / stepW());
+    el.querySelectorAll("#dots i").forEach((d,k)=> d.classList.toggle("on", k===i));
+  }, {passive:true});
+  el.querySelector("#jumpform").onsubmit = e => {
+    e.preventDefault();
+    const v = el.querySelector("#jump").value.trim().toUpperCase();
+    if(!ALL_IDS.includes(v)){ toast("No design " + v); return; }
+    const idx = ALL_IDS.indexOf(v); const sheet = Math.floor(idx/20);
+    rail.scrollTo({left: sheet*stepW(), behavior:"smooth"});
+    setTimeout(()=>{ const b = rail.querySelector(`[data-id="${v}"]`); if(b){ b.focus({preventScroll:true}); b.animate([{transform:"scale(1.15)"},{transform:"scale(1)"}],{duration:400}); } }, 350);
+  };
+  // action bar
+  const bar = h(`<div class="actionbar"><div class="inner">
+    <div class="sum"><b>${n? money(priceFor(n)) : "—"}</b><span>${n? ui.picks.join(" · ") + (n<MAX_PICK? " · add " + (MAX_PICK-n) + " more for " + money(priceFor(n+1)) : " · max three") : "Tap a design to start"}</span></div>
+    <button class="btn" id="cont" ${n && !s.paused ? "" : "disabled"}>Continue</button></div></div>`);
+  bar.querySelector("#cont").onclick = () => { ui.step="details"; render(); window.scrollTo(0,0); };
+  el.appendChild(bar);
+  return el;
+}
+function togglePick(id){
+  if(ui.picks.includes(id)) ui.picks = ui.picks.filter(x=>x!==id);
+  else { if(ui.picks.length>=MAX_PICK){ toast("Three's the limit. Take one off first."); return; } ui.picks = [...ui.picks, id]; }
+  ls("hm_picks", ui.picks);
+  // light update: toggle class and bar without full re-render (keeps scroll position)
+  document.querySelectorAll(".tile").forEach(b=>{ const on = ui.picks.includes(b.dataset.id); b.classList.toggle("sel", on); b.setAttribute("aria-pressed", on); });
+  const n = ui.picks.length;
+  const sum = document.querySelector(".actionbar .sum"); const cont = document.querySelector("#cont");
+  if(sum){ sum.querySelector("b").textContent = n? money(priceFor(n)) : "—";
+    sum.querySelector("span").textContent = n? ui.picks.join(" · ") + (n<MAX_PICK? " · add " + (MAX_PICK-n) + " more for " + money(priceFor(n+1)) : " · max three") : "Tap a design to start"; }
+  if(cont) cont.disabled = !n || Store.settings.paused;
+}
+function renderPoster(){
+  const o = h(`<div class="overlay" role="dialog" aria-label="Full flash poster"><div class="bar"><span class="eyebrow">Pinch to zoom · tap an ID in the grid to go back and pick it</span><button class="btn ghost sm" id="close">Close</button></div><img src="poster.jpg" alt="Bad Choices flash poster, designs A1 to O11"></div>`);
+  o.querySelector("#close").onclick = () => { ui.overlay=false; render(); };
+  return o;
+}
+
+function renderDetails(){
+  const n = ui.picks.length; const d = ui.details;
+  const el = h(`<section class="stack">
+    <div class="steps"><b>1 Pick</b><i></i><b>2 Details</b><i></i><span>3 Pay</span><i></i><span>4 Ticket</span></div>
+    <div class="picked" id="picked"></div>
+    <button class="btn ghost sm" id="back" style="align-self:flex-start">← Change designs</button>
+    <div class="card stack">
+      <label class="field">Name<input id="f_name" value="${esc(d.name)}" autocomplete="name" placeholder="As it appears on your ID"></label>
+      <label class="field">Mobile<input id="f_phone" value="${esc(d.phone)}" inputmode="tel" autocomplete="tel" placeholder="04xx xxx xxx"></label>
+      <label class="field">Email (receipt and aftercare)<input id="f_email" value="${esc(d.email)}" inputmode="email" autocomplete="email" placeholder="you@example.com"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="f_adult" ${d.adult?"checked":""}><span><b>I'm 18 or over.</b> This is an 18+ event. Bring photo ID; staff check it at the counter before anyone sits down.</span></label>
+    <label class="check"><input type="checkbox" id="f_agree" ${d.agree?"checked":""}><span><b>I'm buying a place in the queue, not a time slot.</b> Staff allocate artists as chairs free up. If the event hits capacity before I'm seen, I get a full refund. If I'm called twice and not around, I go to the back; a third time is a refund.</span></label>
+    <p class="terms">After you pay you'll fill in a short tattoo form on your phone while you wait. Photo and marketing permissions are separate and optional. Your tattoo consent is signed on the form, not here.</p>
+    <div class="total"><span class="eyebrow">${n} tattoo${n>1?"s":""} · ${ui.picks.join(", ")}</span><b>${money(priceFor(n))}</b></div>
+    <button class="btn" id="pay" style="width:100%">Pay ${money(priceFor(n))}</button>
+    <div class="dots" style="padding-bottom:20px"></div>
+  </section>`);
+  const picked = el.querySelector("#picked");
+  ui.picks.forEach(id => { const c = h(`<span class="chip lg"><span class="thumb" style="${spritePos(id)}"></span>${id}<button aria-label="Remove ${id}">×</button></span>`); c.querySelector("button").onclick = ()=>{ ui.picks = ui.picks.filter(x=>x!==id); ls("hm_picks", ui.picks); if(!ui.picks.length) ui.step="gallery"; render(); }; picked.appendChild(c); });
+  el.querySelector("#back").onclick = () => { ui.step="gallery"; render(); };
+  const grab = () => { ui.details = {name: el.querySelector("#f_name").value.trim(), phone: el.querySelector("#f_phone").value.trim(), email: el.querySelector("#f_email").value.trim(), adult: el.querySelector("#f_adult").checked, agree: el.querySelector("#f_agree").checked}; ls("hm_details", ui.details); };
+  el.querySelectorAll("input").forEach(i => { i.addEventListener("input", grab); i.addEventListener("change", grab); });
+  el.querySelector("#pay").onclick = () => {
+    grab(); const d = ui.details;
+    if(!d.name || !d.phone){ toast("Name and mobile, please"); return; }
+    if(!d.adult){ toast("18+ only at this one"); return; }
+    if(!d.agree){ toast("Tick the queue terms to pay"); return; }
+    if(Store.settings.paused){ toast("Sales are paused right now"); return; }
+    ui.modal = renderPaySheet; render();
+  };
+  return el;
+}
+
+function renderPaySheet(){
+  const n = ui.picks.length; const amt = priceFor(n);
+  const el = h(`<div class="paysheet" role="dialog" aria-label="Payment"><div class="box">
+    <div class="spread"><span class="eyebrow">Hoochimama Pop Ups</span><span class="test">Test mode</span></div>
+    <div style="font-size:1.6rem;font-weight:700;margin:6px 0 14px">${money(amt)}.00 <span style="font-size:.9rem;color:#697386;font-weight:500">· ${n} flash tattoo${n>1?"s":""}</span></div>
+    <div class="stack" style="gap:8px">
+      <input id="cc" value="4242 4242 4242 4242" aria-label="Card number" inputmode="numeric">
+      <div class="row" style="flex-wrap:nowrap"><input value="12 / 29" aria-label="Expiry"><input value="123" aria-label="CVC"></div>
+    </div>
+    <button class="pay" id="dopay">Pay ${money(amt)}</button>
+    <div class="row" style="justify-content:space-between;margin-top:10px"><button id="cancel" style="color:#697386;font-size:.85rem">Cancel</button><span style="font-size:.72rem;color:#697386">Powered by Stripe · simulated for this prototype</span></div>
+  </div></div>`);
+  el.querySelector("#cancel").onclick = () => { ui.modal=null; render(); };
+  el.querySelector("#dopay").onclick = async () => {
+    const b = el.querySelector("#dopay"); b.innerHTML = '<span class="spin" style="margin:0 auto"></span>'; b.disabled = true;
+    await new Promise(r=>setTimeout(r, 1100));
+    await createTicket();
+  };
+  return el;
+}
+
+async function createTicket(){
+  const {no, ref} = nextRef(); const d = ui.details;
+  const t = {
+    id: uid(), no, ref, name: d.name, phone: d.phone, email: d.email,
+    designs: [...ui.picks], amount: priceFor(ui.picks.length),
+    status: "queued", created_at: now(), paid_at: now(),
+    artist: null, station: null, no_shows: 0,
+    form: {complete: false}
+  };
+  ls("hm_my_ticket", t.id); ls("hm_picks", null); ui.picks = [];
+  ui.modal = null; ui.step = "ticket";
+  await Store.saveTicket(t);
+  await Store.saveSettings({nextNo: no});
+  sms(t.phone, `Paid ${money(t.amount)} · ticket ${ref}. Head to the Hoochi Mama counter to check in. Have your ID ready.`);
+  render(); window.scrollTo(0,0);
+}
+
+function renderTicket(t){
+  const st = STATUS[t.status] || STATUS.queued;
+  const pos = queueOrder().findIndex(x=>x.id===t.id) + 1;
+  const artist = (Store.settings.artists||[]).find(a=>a.id===t.artist);
+  let statusHTML = "";
+  if(t.status==="queued") statusHTML = `<div class="status"><div><div class="big">Paid. Come check in.</div><div class="small muted">Find the counter, show this screen and your ID. You'll join the queue from there and we'll text you when it's your turn.</div></div></div>`;
+  else if(t.status==="checked_in") statusHTML = `<div class="status"><div><div class="big">You're #${pos} in line</div><div class="small muted">About ${estWaitFor(pos)} min. Wander off if you like, we'll text you when a chair's free.</div></div></div>`;
+  else if(t.status==="assigned") statusHTML = `<div class="status up"><div><div class="big">You're up. Station ${t.station}</div><div class="small muted">${artist? artist.name : "Your artist"} is ready for you. Head over now.</div></div></div>`;
+  else if(t.status==="in_progress") statusHTML = `<div class="status"><div><div class="big">In the chair</div><div class="small muted">Station ${t.station} with ${artist? artist.name : "your artist"}.</div></div></div>`;
+  else if(t.status==="done") statusHTML = `<div class="status done"><div><div class="big">Done. Look after it.</div><div class="small muted">Aftercare sent to ${esc(t.email||"your email")}. Keep it clean, keep it moisturised, stay out of the sun.</div></div></div>`;
+  else if(t.status==="no_show") statusHTML = `<div class="status warn"><div><div class="big">We called, you weren't there</div><div class="small muted">You've gone back a few places. Head to the counter so they can slot you in.</div></div></div>`;
+  else if(t.status==="refunded") statusHTML = `<div class="status warn"><div><div class="big">Refunded</div><div class="small muted">${money(t.amount)} is on its way back to your card. Sorry we couldn't fit you in.</div></div></div>`;
+  const steps = ["Paid","Checked in","Called","Tattooing","Done"];
+  const el = h(`<section class="stack">
+    <div class="steps"><span>1 Pick</span><i></i><span>2 Details</span><i></i><span>3 Pay</span><i></i><b>4 Ticket</b></div>
+    <div class="ticket">
+      <div class="head"><span class="display">Your ticket</span><span class="pill" style="border-color:#1a0f0b;color:#1a0f0b">${st.label}</span></div>
+      <div class="ref">${esc(t.ref)}</div>
+      <div class="qr"><div id="qr"></div></div>
+      <div class="body">
+        <div class="ladder">${steps.map((_,i)=>`<span class="${i<=st.step? (t.status==="done"?"ok":"on"):""}"></span>`).join("")}</div>
+        <div class="ladder-labels">${steps.map(s=>`<span>${s}</span>`).join("")}</div>
+        ${statusHTML}
+        <div class="tear"></div>
+        <div class="spread"><span class="eyebrow">${esc(t.name)}</span><span class="eyebrow">${money(t.amount)} paid ${fmtTime(t.paid_at)}</span></div>
+        <div class="picked">${t.designs.map(id=>`<span class="chip lg"><span class="thumb" style="${spritePos(id)}"></span>${id}</span>`).join("")}</div>
+      </div>
+    </div>
+    <div id="smslog" class="stack" style="gap:8px"></div>
+    <div id="formslot"></div>
+  </section>`);
+  if(window.QRCode){ try{ new QRCode(el.querySelector("#qr"), {text: "HM:"+t.ref, width: 120, height: 120, colorDark:"#15120f", colorLight:"#ffffff", correctLevel: QRCode.CorrectLevel.M}); }catch(e){} }
+  // sms bubbles
+  const log = (ls("hm_sms")||[]).filter(m=>m.to===t.phone).slice(0,3).reverse();
+  const sl = el.querySelector("#smslog");
+  log.forEach(m => sl.appendChild(h(`<div class="sms"><div class="bubble"><span class="from">Text from Hoochi Mama · ${fmtTime(m.at)}</span>${esc(m.text)}</div></div>`)));
+  // form
+  const slot = el.querySelector("#formslot");
+  if(!t.form || !t.form.complete) slot.appendChild(renderForm(t));
+  else slot.appendChild(h(`<div class="card"><div class="spread"><span class="eyebrow">Tattoo form</span><span class="pill ok">Complete</span></div><div class="small muted" style="margin-top:6px">Signed ${fmtTime(t.form.signed_at)} as "${esc(t.form.signature)}". Staff will confirm placement with you at the station.</div></div>`));
+  return el;
+}
+
+function renderForm(t){
+  const f = ui.form;
+  const el = h(`<div class="card form-section">
+    <div><div class="eyebrow">Tattoo form · 2 minutes</div><div class="small muted">Do this while you wait. Staff can't seat you until it's done.</div></div>
+    <label class="field">Where on your body?<input id="q_place" value="${esc(f.placement||"")}" placeholder="e.g. inner forearm, left"></label>
+    <div class="field"><span>Any allergies, skin conditions, or recent sunburn where you want it?</span>
+      <div class="yn"><button type="button" data-k="allergies" data-v="no" class="${f.allergies==="no"?"on":""}">No</button><button type="button" data-k="allergies" data-v="yes" class="${f.allergies==="yes"?"on":""}">Yes</button></div></div>
+    <div class="field"><span>Blood thinners, pregnant, or had a drink today?</span>
+      <div class="yn"><button type="button" data-k="medical" data-v="no" class="${f.medical==="no"?"on":""}">No</button><button type="button" data-k="medical" data-v="yes" class="${f.medical==="yes"?"on":""}">Yes</button></div></div>
+    <label class="field" id="notewrap" ${f.allergies==="yes"||f.medical==="yes"?"":"hidden"}>Tell us a bit more (only staff and your artist see this)<textarea id="q_note">${esc(f.note||"")}</textarea></label>
+    <p class="note">Health answers are stored separately from your contact details and are only visible to counter staff and your artist. They're collected so the artist can tattoo you safely, nothing else.</p>
+    <label class="check"><input type="checkbox" id="q_consent" ${f.consent?"checked":""}><span><b>Consent to tattoo (required).</b> I understand a tattoo is permanent, I've chosen the design and placement myself, I've answered the health questions truthfully, and staff can decline to tattoo me if they have concerns.</span></label>
+    <label class="check"><input type="checkbox" id="q_photo" ${f.photo?"checked":""}><span><b>Photo permission (optional).</b> You can photograph my tattoo and post it on the studio's socials.</span></label>
+    <label class="check"><input type="checkbox" id="q_marketing" ${f.marketing?"checked":""}><span><b>Keep me posted (optional).</b> Text or email me about future pop-ups, flash days and studio news. Unsubscribe any time.</span></label>
+    <label class="field">Sign by typing your full name<input id="q_sig" class="sig" value="${esc(f.signature||"")}" placeholder="Your name" autocomplete="off"></label>
+    <button class="btn" id="submitform">Submit form</button>
+  </div>`);
+  const grab = () => { ui.form = Object.assign({}, ui.form, {placement: el.querySelector("#q_place").value, note: el.querySelector("#q_note").value, consent: el.querySelector("#q_consent").checked, photo: el.querySelector("#q_photo").checked, marketing: el.querySelector("#q_marketing").checked, signature: el.querySelector("#q_sig").value}); };
+  el.querySelectorAll(".yn button").forEach(b => b.onclick = () => { grab(); ui.form[b.dataset.k] = b.dataset.v; render(); });
+  el.querySelectorAll("input,textarea").forEach(i => { i.addEventListener("input", grab); i.addEventListener("change", grab); });
+  el.querySelector("#submitform").onclick = async () => {
+    grab(); const f = ui.form;
+    if(!f.placement){ toast("Where's it going?"); return; }
+    if(!f.allergies || !f.medical){ toast("Answer the two health questions"); return; }
+    if(!f.consent){ toast("Consent to tattoo is required"); return; }
+    if(!f.signature || f.signature.trim().length<3){ toast("Type your full name to sign"); return; }
+    const flagged = f.allergies==="yes" || f.medical==="yes";
+    await Store.patchTicket(t.id, {form: {complete:true, placement:f.placement, allergies:f.allergies, medical:f.medical, note:f.note||"", consent:true, photo:!!f.photo, marketing:!!f.marketing, signature:f.signature.trim(), signed_at: now(), flagged}});
+    ui.form = {}; toast(flagged ? "Form in. Staff will have a quick word at check-in." : "Form in. You're all set."); render();
+  };
+  return el;
+}
+
+/* ---------- counter ---------- */
+function renderCounter(){
+  const s = Store.settings; const all = sorted();
+  const counts = {
+    all: all.length,
+    queued: all.filter(t=>t.status==="queued").length,
+    checked_in: all.filter(t=>t.status==="checked_in").length,
+    active: all.filter(t=>t.status==="assigned"||t.status==="in_progress").length,
+    done: all.filter(t=>t.status==="done").length,
+    attention: all.filter(t=>t.status==="no_show" || (t.form&&t.form.flagged&&t.status!=="done")).length
+  };
+  const takings = all.filter(t=>t.status!=="refunded").reduce((a,t)=>a+(t.amount||0),0);
+  const refunds = all.filter(t=>t.status==="refunded").reduce((a,t)=>a+(t.amount||0),0);
+  const cap = capacityLeft();
+  const waiting = queueOrder();
+  const est = waiting.length ? estWaitFor(waiting.length) : 0;
+  const matchesTab = t => {
+    switch(ui.filter){
+      case "queued": return t.status==="queued";
+      case "checked_in": return t.status==="checked_in";
+      case "active": return t.status==="assigned"||t.status==="in_progress";
+      case "done": return t.status==="done";
+      case "attention": return t.status==="no_show" || (t.form&&t.form.flagged&&t.status!=="done");
+      default: return true;
+    }
+  };
+  const matchesSearch = t => { const q2 = ui.q.toLowerCase().trim().replace("hm:",""); return !q2 || (t.name||"").toLowerCase().includes(q2) || (t.phone||"").replace(/\s/g,"").includes(q2.replace(/\s/g,"")) || (t.ref||"").toLowerCase().includes(q2); };
+  const rank = {assigned:0,in_progress:1,no_show:2,checked_in:3,queued:4,done:6,refunded:7};
+  const visible = () => all.filter(t => matchesTab(t) && matchesSearch(t)).sort((a,b)=>{
+    const ra = rank[a.status]??5, rb = rank[b.status]??5; if(ra!==rb) return ra-rb;
+    if(a.status==="checked_in") return (a.priority||a.checked_in_at||0)-(b.priority||b.checked_in_at||0);
+    return (a.created_at||0)-(b.created_at||0);
+  });
+  const page = h(`<div class="stack" style="gap:0"></div>`);
+  page.insertAdjacentHTML("beforeend", header("counter"));
+  const main = h(`<main class="wrap wide stack">
+    <div class="stats">
+      <div class="stat"><span class="eyebrow">Awaiting check-in</span><b>${counts.queued}</b><small>paid, not here yet</small></div>
+      <div class="stat"><span class="eyebrow">In queue</span><b class="coral">${counts.checked_in}</b><small>≈ ${est} min at the back</small></div>
+      <div class="stat"><span class="eyebrow">In chairs</span><b>${counts.active}</b><small>of ${activeArtists().length} stations</small></div>
+      <div class="stat"><span class="eyebrow">Done</span><b>${counts.done}</b><small>tattooed today</small></div>
+      <div class="stat"><span class="eyebrow">Takings</span><b class="tabular">${money(takings)}</b><small>${refunds? money(refunds)+" refunded" : "no refunds"}</small></div>
+      <div class="stat"><span class="eyebrow">Capacity left</span><b class="${cap.left<10?"coral":""}">${cap.left}</b><small>${cap.sold} sold of ≈${cap.can} this roster</small></div>
+    </div>
+    <div class="card stack" style="gap:10px">
+      <div class="spread"><span class="eyebrow">Artists on tonight</span>
+        <div class="row" style="gap:8px"><button class="btn ghost sm" id="pause">${s.paused?"Resume sales":"Pause sales"}</button><button class="btn ghost sm" id="minutes">≈${s.minutesPerTattoo} min / tattoo</button></div></div>
+      <div class="roster" id="roster"></div>
+    </div>
+    <div class="toolbar">
+      <input id="search" placeholder="Search name, mobile, ticket or scan QR" value="${esc(ui.q)}" aria-label="Search">
+      <div class="tabs" id="tabs">
+        ${[["all","All"],["queued","Awaiting check-in"],["checked_in","Queue"],["active","In chairs"],["attention","Attention"],["done","Done"]].map(([k,l])=>`<button data-f="${k}" class="${ui.filter===k?"on":""}">${l}<b>${counts[k]}</b></button>`).join("")}
+      </div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="row" style="justify-content:space-between;padding-block:10px">
+      <span class="tiny muted">Prototype · payments simulated · texts shown as on-screen notices</span>
+      <div class="row"><button class="btn ghost sm" id="demo">Load demo queue</button><button class="btn danger sm" id="reset">Reset event</button></div>
+    </div>
+  </main>`);
+  page.appendChild(main);
+  // roster
+  const roster = main.querySelector("#roster");
+  (s.artists||[]).forEach(a => {
+    const busy = artistBusy(a.id);
+    const b = h(`<button class="${a.active?"":"off"}" title="Tap to toggle on shift"><b>${esc(a.name)}</b><small>Station ${a.station} · ${a.active? (busy? `<span class="busy">with ${esc(busy.ref)}</span>` : "free") : "off shift"}</small></button>`);
+    b.onclick = () => Store.saveSettings({artists: s.artists.map(x => x.id===a.id ? {...x, active: !x.active} : x)});
+    roster.appendChild(b);
+  });
+  const addA = h(`<button title="Add artist"><b>+ Add artist</b><small>new station</small></button>`);
+  addA.onclick = () => { ui.modal = () => renderAddArtist(); render(); };
+  roster.appendChild(addA);
+  main.querySelector("#pause").onclick = () => { Store.saveSettings({paused: !s.paused}); toast(s.paused? "Sales resumed" : "Sales paused on the customer page"); };
+  main.querySelector("#minutes").onclick = () => { const next = {12:15, 15:20, 20:8, 8:10, 10:12}[s.minutesPerTattoo] || 12; Store.saveSettings({minutesPerTattoo: next}); };
+  main.querySelector("#search").oninput = e => { ui.q = e.target.value; renderBoard(main.querySelector("#board")); };
+  main.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { ui.filter = b.dataset.f; render(); });
+  main.querySelector("#demo").onclick = loadDemo;
+  main.querySelector("#reset").onclick = () => { ui.modal = () => renderConfirm("Reset the event?", "Clears every ticket on every device. The roster stays.", async ()=>{ await Store.clearTickets(); ls("hm_my_ticket", null); ls("hm_sms", null); ui.modal=null; render(); }); render(); };
+  renderBoard(main.querySelector("#board"));
+  app.appendChild(page);
+  function renderBoard(board){
+    const rows = visible();
+    board.innerHTML = "";
+    if(!rows.length){ board.appendChild(h(`<div class="empty"><div class="display">Nothing here yet</div>${all.length? "No tickets match this view." : "When someone scans the QR and pays, they show up here within a second. Try it from a phone, or load the demo queue."}</div>`)); return; }
+    rows.forEach(t => board.appendChild(renderRow(t)));
+  }
+}
+function renderRow(t){
+  const st = STATUS[t.status] || STATUS.queued; const s = Store.settings;
+  const artist = (s.artists||[]).find(a=>a.id===t.artist);
+  const pos = t.status==="checked_in" ? queueOrder().findIndex(x=>x.id===t.id)+1 : 0;
+  const formPill = !t.form||!t.form.complete ? `<span class="pill warn">Form incomplete</span>` : t.form.flagged ? `<span class="pill bad">Form flagged</span>` : `<span class="pill ok">Form ✓</span>`;
+  const statusPill = `<span class="pill ${t.status==="assigned"?"coral":t.status==="done"?"ok":t.status==="no_show"||t.status==="refunded"?"bad":""}">${st.label}${pos?` · #${pos}`:""}</span>`;
+  const el = h(`<div class="trow ${t.status==="assigned"?"up":""}">
+    <div class="ref">${esc(t.ref)}<small>${fmtTime(t.created_at)}</small></div>
+    <div class="who">
+      <div class="name">${esc(t.name)} <span class="muted small">${esc(t.phone)}</span></div>
+      <div class="meta"><span class="minis">${t.designs.map(id=>`<span class="mini" style="${spritePos(id)}" title="${id}"></span>`).join("")}</span><span>${t.designs.join(" · ")}</span><span>· ${money(t.amount)} paid</span>${formPill}${statusPill}${artist?`<span>· ${esc(artist.name)} · St ${t.station}</span>`:""}${t.no_shows?`<span class="flag">· ${t.no_shows} no-show</span>`:""}</div>
+      <div class="det" id="det" hidden></div>
+    </div>
+    <div class="acts"></div>
+  </div>`);
+  const acts = el.querySelector(".acts");
+  const add = (label, cls, fn) => { const b = h(`<button class="btn sm ${cls}">${label}</button>`); b.onclick = fn; acts.appendChild(b); };
+  if(t.status==="queued") add("Check in", "", () => checkIn(t));
+  if(t.status==="checked_in"){ add("Assign", "", () => { ui.modal = () => renderAssign(t); render(); }); if(pos>1) add("Move up", "ghost", () => { const order = queueOrder(); const ahead = order[pos-2]; Store.patchTicket(t.id, {priority: (ahead.priority||ahead.checked_in_at||ahead.created_at) - 1}); }); }
+  if(t.status==="no_show"){ add("Back in queue", "", () => Store.patchTicket(t.id, {status:"checked_in", checked_in_at: now(), priority: null})); }
+  if(t.status==="assigned"){ add("Start", "ok", () => Store.patchTicket(t.id, {status:"in_progress", started_at: now()})); add("No-show", "danger", () => noShow(t)); add("Re-assign", "ghost", () => { ui.modal = () => renderAssign(t); render(); }); }
+  if(t.status==="in_progress") add("Done", "ok", () => finish(t));
+  const more = h(`<button class="icon-btn" aria-label="Details">⋯</button>`);
+  more.onclick = () => { const d = el.querySelector("#det"); d.hidden = !d.hidden; if(!d.hidden) d.innerHTML = detailHTML(t); };
+  acts.appendChild(more);
+  return el;
+}
+function detailHTML(t){
+  const f = t.form||{};
+  const rows = [["Email", t.email||"—"],["Paid", `${money(t.amount)} at ${fmtTime(t.paid_at)}`],["Placement", f.placement||"—"],["Health", f.complete ? (f.flagged ? `<span class="flag">Flagged</span> — allergies/skin: ${f.allergies}, medical: ${f.medical}${f.note? " — "+esc(f.note):""}` : "No concerns declared") : "Form not done"],["Photos", f.complete ? (f.photo?"Yes":"No") : "—"],["Marketing", f.complete ? (f.marketing?"Opted in":"No") : "—"],["Signed", f.complete ? `${esc(f.signature)} at ${fmtTime(f.signed_at)}` : "—"]];
+  const refundBtn = ["queued","checked_in","no_show"].includes(t.status) ? `<div style="grid-column:1/-1;margin-top:6px"><button class="btn danger sm" onclick="refund('${t.id}')">Refund ${money(t.amount)} and remove from queue</button></div>` : "";
+  return rows.map(([k,v])=>`<span>${k}</span><b>${v}</b>`).join("") + refundBtn;
+}
+async function checkIn(t){
+  const flagged = t.form && t.form.flagged;
+  await Store.patchTicket(t.id, {status:"checked_in", checked_in_at: now(), priority: null});
+  const pos = queueOrder().findIndex(x=>x.id===t.id)+1;
+  sms(t.phone, `Checked in · ${t.ref}. You're #${pos} in line, about ${estWaitFor(pos)} min. We'll text when a chair's free.`);
+  if(flagged) toast(`${t.ref} checked in. Form is flagged, have a word before seating.`);
+}
+async function assign(t, a){
+  await Store.patchTicket(t.id, {status:"assigned", artist: a.id, station: a.station, called_at: now()});
+  sms(t.phone, `You're up, ${t.name.split(" ")[0]}! Station ${a.station} with ${a.name}. Come now, your spot's held for 10 min.`);
+  ui.modal = null; render();
+}
+async function noShow(t){
+  const n = (t.no_shows||0)+1;
+  if(n>=3){ await Store.patchTicket(t.id, {status:"refunded", refunded_at: now(), no_shows:n, artist:null, station:null}); sms(t.phone, `We called you three times for ${t.ref}. We've refunded ${money(t.amount)} to your card.`); return; }
+  // drop back three places
+  const order = queueOrder(); const idx = Math.min(2, order.length-1);
+  const anchor = order[idx]; const prio = anchor ? (anchor.priority||anchor.checked_in_at||anchor.created_at) + 1 : now();
+  await Store.patchTicket(t.id, {status:"no_show", no_shows:n, artist:null, station:null, priority: prio});
+  sms(t.phone, `We called ${t.ref} and couldn't find you. You've moved back a few places; come to the counter.`);
+}
+async function finish(t){
+  await Store.patchTicket(t.id, {status:"done", done_at: now()});
+  sms(t.phone, `All done. Aftercare: hoochimama.tattoo/aftercare · keep it clean and out of the sun.`);
+}
+async function refund(id){
+  const t = Store.tickets[id]; if(!t) return;
+  await Store.patchTicket(id, {status:"refunded", refunded_at: now(), artist:null, station:null});
+  sms(t.phone, `Refund of ${money(t.amount)} for ${t.ref} is on its way back to your card (3–5 business days).`);
+}
+window.refund = refund;
+
+function renderAssign(t){
+  const s = Store.settings; const arts = (s.artists||[]);
+  const el = h(`<div class="modal" role="dialog" aria-label="Assign artist"><div class="box">
+    <div class="spread"><div><div class="eyebrow">Assign ${esc(t.ref)}</div><div style="font-weight:700;font-size:1.1rem">${esc(t.name)} · ${t.designs.join(", ")}</div></div><button class="icon-btn" id="x">Close</button></div>
+    ${t.form&&t.form.flagged ? `<div class="status warn" style="padding:10px"><div class="small"><b>Form flagged.</b> ${esc(t.form.note||"Check allergies/medical answers before seating.")}</div></div>` : ""}
+    ${!t.form||!t.form.complete ? `<div class="status warn" style="padding:10px"><div class="small"><b>Form not done.</b> Get them to finish it on their phone, or do it with them on the tablet.</div></div>` : ""}
+    <div class="stack" style="gap:8px" id="opts"></div>
+  </div></div>`);
+  el.querySelector("#x").onclick = () => { ui.modal=null; render(); };
+  const opts = el.querySelector("#opts");
+  arts.forEach(a => {
+    const busy = artistBusy(a.id);
+    const dis = !a.active || (busy && busy.id!==t.id);
+    const b = h(`<button class="opt ${dis?"dis":""}" ${dis?"disabled":""}><span><b>${esc(a.name)}</b><br><small>Station ${a.station}</small></span><small>${!a.active?"Off shift": busy? "Busy with "+esc(busy.ref) : "Free now"}</small></button>`);
+    b.onclick = () => assign(t, a);
+    opts.appendChild(b);
+  });
+  if(!arts.some(a=>a.active && !artistBusy(a.id))) opts.appendChild(h(`<div class="small muted">Every station's busy. Assign anyway if someone's about to finish, or wait for a Done.</div>`));
+  return el;
+}
+function renderAddArtist(){
+  const s = Store.settings;
+  const el = h(`<div class="modal" role="dialog" aria-label="Add artist"><div class="box">
+    <div class="eyebrow">Add an artist</div>
+    <label class="field">Name<input id="a_name" placeholder="First name"></label>
+    <label class="field">Station number<input id="a_st" inputmode="numeric" value="${(s.artists||[]).length+1}"></label>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost sm" id="x">Cancel</button><button class="btn sm" id="ok">Add</button></div>
+  </div></div>`);
+  el.querySelector("#x").onclick = () => { ui.modal=null; render(); };
+  el.querySelector("#ok").onclick = () => { const name = el.querySelector("#a_name").value.trim(); if(!name){ toast("Name?"); return; } Store.saveSettings({artists: [...(s.artists||[]), {id: uid(), name, station: parseInt(el.querySelector("#a_st").value,10)||1, active:true}]}); ui.modal=null; render(); };
+  return el;
+}
+function renderConfirm(title, body, fn){
+  const el = h(`<div class="modal" role="dialog"><div class="box"><div class="display" style="font-size:1.3rem">${title}</div><div class="small muted">${body}</div><div class="row" style="justify-content:flex-end"><button class="btn ghost sm" id="x">Cancel</button><button class="btn danger sm" id="ok">Yes, do it</button></div></div></div>`);
+  el.querySelector("#x").onclick = () => { ui.modal=null; render(); }; el.querySelector("#ok").onclick = fn; return el;
+}
+async function loadDemo(){
+  const names = [["Jess M","0412 000 001"],["Kai T","0412 000 002"],["Priya S","0412 000 003"],["Dom R","0412 000 004"],["Ash L","0412 000 005"],["Tegan W","0412 000 006"]];
+  const picks = [["F4"],["K2","B8"],["G7"],["A1","M5","O9"],["J10"],["E3","D7"]];
+  const statuses = ["done","in_progress","checked_in","checked_in","queued","queued"];
+  const base = now() - 50*60000;
+  let {no} = nextRef();
+  for(let i=0;i<names.length;i++){
+    const ref = "HM-" + String(no).padStart(3,"0");
+    const st = statuses[i];
+    const t = {id: uid(), no, ref, name: names[i][0] + " (example)", phone: names[i][1], email: "example@example.com", designs: picks[i], amount: priceFor(picks[i].length), status: st, created_at: base + i*6*60000, paid_at: base + i*6*60000, artist: null, station: null, no_shows: 0,
+      form: i===3 ? {complete:true, placement:"ankle", allergies:"yes", medical:"no", note:"Eczema on the forearm, ankle is fine", consent:true, photo:false, marketing:true, signature:names[i][0], signed_at: base + i*6*60000 + 120000, flagged:true}
+           : i>=4 ? {complete:false} : {complete:true, placement:"inner forearm", allergies:"no", medical:"no", note:"", consent:true, photo:true, marketing:i%2===0, signature:names[i][0], signed_at: base + i*6*60000 + 120000, flagged:false}};
+    if(st!=="queued"){ t.checked_in_at = t.created_at + 4*60000; }
+    if(st==="in_progress"){ t.artist="a1"; t.station=1; t.called_at=t.checked_in_at+5*60000; t.started_at=t.called_at+3*60000; }
+    if(st==="done"){ t.artist="a2"; t.station=2; t.called_at=t.checked_in_at+2*60000; t.started_at=t.called_at+2*60000; t.done_at=t.started_at+11*60000; }
+    await Store.saveTicket(t); no++;
+  }
+  await Store.saveSettings({nextNo: no-1});
+  toast("Six example tickets loaded");
+}
+
+/* ---------- artist ---------- */
+function renderArtist(){
+  const s = Store.settings; const arts = s.artists||[];
+  const me = arts.find(a=>a.id===ui.artistId) || null;
+  const page = h(`<div class="stack" style="gap:0"></div>`);
+  page.insertAdjacentHTML("beforeend", header("artist"));
+  const main = h(`<main class="wrap stack"></main>`);
+  const sel = h(`<label class="field">I am<select id="who"><option value="">Choose your name</option>${arts.map(a=>`<option value="${a.id}" ${a.id===ui.artistId?"selected":""}>${esc(a.name)} · Station ${a.station}</option>`).join("")}</select></label>`);
+  sel.querySelector("select").onchange = e => { ui.artistId = e.target.value||null; ls("hm_artist", ui.artistId); render(); };
+  main.appendChild(sel);
+  if(me){
+    const mine = sorted().filter(t=>t.artist===me.id && (t.status==="assigned"||t.status==="in_progress"));
+    const doneToday = sorted().filter(t=>t.artist===me.id && t.status==="done").length;
+    const waiting = queueOrder().length;
+    main.appendChild(h(`<div class="stats"><div class="stat"><span class="eyebrow">Your station</span><b>${me.station}</b><small>${me.active?"on shift":"off shift"}</small></div><div class="stat"><span class="eyebrow">Done today</span><b>${doneToday}</b></div><div class="stat"><span class="eyebrow">Waiting overall</span><b class="coral">${waiting}</b></div></div>`));
+    if(!mine.length) main.appendChild(h(`<div class="empty"><div class="display">Nothing assigned</div>The counter sends your next person here. You'll see their design, placement and anything flagged, nothing else.</div>`));
+    mine.forEach(t => {
+      const f = t.form||{};
+      const c = h(`<div class="card stack">
+        <div class="spread"><span class="ref display" style="font-size:1.6rem">${esc(t.ref)}</span><span class="pill ${t.status==="assigned"?"coral":""}">${STATUS[t.status].label}</span></div>
+        <div style="font-weight:700;font-size:1.1rem">${esc(t.name)}</div>
+        <div class="picked">${t.designs.map(id=>`<span class="chip lg"><span class="thumb" style="${spritePos(id)}"></span>${id}</span>`).join("")}</div>
+        <div class="det"><span>Placement</span><b>${esc(f.placement||"Not given, ask")}</b><span>Health</span><b>${f.complete ? (f.flagged ? `<span class="flag">Flagged</span> — ${esc(f.note||"see counter")}` : "No concerns declared") : "Form not done, check with counter"}</b><span>Photos</span><b>${f.complete ? (f.photo?"OK to photograph":"No photos") : "—"}</b></div>
+        <div class="row" style="justify-content:flex-end"></div>
+      </div>`);
+      const row = c.querySelector(".row");
+      if(t.status==="assigned"){ const b=h(`<button class="btn ok">Started</button>`); b.onclick=()=>Store.patchTicket(t.id,{status:"in_progress",started_at:now()}); row.appendChild(b); const ns=h(`<button class="btn danger sm">No-show</button>`); ns.onclick=()=>noShow(t); row.appendChild(ns); }
+      if(t.status==="in_progress"){ const b=h(`<button class="btn ok">Done</button>`); b.onclick=()=>finish(t); row.appendChild(b); }
+      main.appendChild(c);
+    });
+    const off = h(`<button class="btn ghost sm" style="align-self:flex-start">${me.active? "Finish my shift" : "Back on shift"}</button>`);
+    off.onclick = () => Store.saveSettings({artists: arts.map(x=>x.id===me.id?{...x, active:!x.active}:x)});
+    main.appendChild(off);
+  }
+  page.appendChild(main);
+  app.appendChild(page);
+}
+
+/* ============ boot ============ */
+Store.subscribe(() => { if(!document.hidden || true) render(); });
+Store.init();
+render();
+</script>
+</body>
+</html>
