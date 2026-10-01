@@ -634,7 +634,7 @@ function renderTicket(t){
   const pos = queueOrder().findIndex(x=>x.id===t.id) + 1;
   const artist = (Store.settings.artists||[]).find(a=>a.id===t.artist);
   let statusHTML = "";
-  if(t.status==="queued") statusHTML = `<div class="status"><div><div class="big">Paid. Come check in.</div><div class="small muted">Find the counter, show this screen and your ID. You'll join the queue from there and we'll text you when it's your turn.</div></div></div>`;
+  if(t.status==="queued") statusHTML = `<div class="status"><div style="flex:1"><div class="big">Paid. At the tent?</div><div class="small muted">Tap below when you're here and you'll join the queue straight away. We'll text you when a chair's free. Have your ID ready for the artist.</div><div style="margin-top:12px"><button class="btn" id="imhere" style="width:100%">I'm here · join the queue</button></div><div class="tiny muted" style="margin-top:8px">Phone playing up? The counter can check you in too.</div></div></div>`;
   else if(t.status==="checked_in") statusHTML = `<div class="status"><div><div class="big">You're #${pos} in line</div><div class="small muted">About ${estWaitFor(pos)} min. Wander off if you like, we'll text you when a chair's free.</div></div></div>`;
   else if(t.status==="assigned") statusHTML = `<div class="status up"><div><div class="big">You're up. Station ${t.station}</div><div class="small muted">${artist? artist.name : "Your artist"} is ready for you. Head over now.</div></div></div>`;
   else if(t.status==="in_progress") statusHTML = `<div class="status"><div><div class="big">In the chair</div><div class="small muted">Station ${t.station} with ${artist? artist.name : "your artist"}.</div></div></div>`;
@@ -660,6 +660,8 @@ function renderTicket(t){
     <div id="smslog" class="stack" style="gap:8px"></div>
     <div id="formslot"></div>
   </section>`);
+  const ih = el.querySelector("#imhere");
+  if(ih) ih.onclick = async () => { ih.disabled = true; ih.textContent = "Joining…"; await selfCheckIn(t); };
   if(window.QRCode){ try{ new QRCode(el.querySelector("#qr"), {text: "HM:"+t.ref, width: 120, height: 120, colorDark:"#15120f", colorLight:"#ffffff", correctLevel: QRCode.CorrectLevel.M}); }catch(e){} }
   // sms bubbles
   const log = (ls("hm_sms")||[]).filter(m=>m.to===t.phone).slice(0,3).reverse();
@@ -742,7 +744,7 @@ function renderCounter(){
   page.insertAdjacentHTML("beforeend", header("counter"));
   const main = h(`<main class="wrap wide stack">
     <div class="stats">
-      <div class="stat"><span class="eyebrow">Awaiting check-in</span><b>${counts.queued}</b><small>paid, not here yet</small></div>
+      <div class="stat"><span class="eyebrow">Paid, not arrived</span><b>${counts.queued}</b><small>they tap I'm here, or you check them in</small></div>
       <div class="stat"><span class="eyebrow">In queue</span><b class="coral">${counts.checked_in}</b><small>≈ ${est} min at the back</small></div>
       <div class="stat"><span class="eyebrow">In chairs</span><b>${counts.active}</b><small>of ${activeArtists().length} stations</small></div>
       <div class="stat"><span class="eyebrow">Done</span><b>${counts.done}</b><small>tattooed today</small></div>
@@ -798,7 +800,7 @@ function renderRow(t){
   const artist = (s.artists||[]).find(a=>a.id===t.artist);
   const pos = t.status==="checked_in" ? queueOrder().findIndex(x=>x.id===t.id)+1 : 0;
   const formPill = !t.form||!t.form.complete ? `<span class="pill warn">Form incomplete</span>` : t.form.flagged ? `<span class="pill bad">Form flagged</span>` : `<span class="pill ok">Form ✓</span>`;
-  const statusPill = `<span class="pill ${t.status==="assigned"?"coral":t.status==="done"?"ok":t.status==="no_show"||t.status==="refunded"?"bad":""}">${st.label}${pos?` · #${pos}`:""}</span>`;
+  const statusPill = `<span class="pill ${t.status==="assigned"?"coral":t.status==="done"?"ok":t.status==="no_show"||t.status==="refunded"?"bad":""}">${st.label}${pos?` · #${pos}`:""}</span>${t.self_checked_in && t.status==="checked_in" ? `<span class="pill" title="Checked themselves in; sight ID at the chair">Self · ID at chair</span>` : ""}`;
   const el = h(`<div class="trow ${t.status==="assigned"?"up":""}">
     <div class="ref">${esc(t.ref)}<small>${fmtTime(t.created_at)}</small></div>
     <div class="who">
@@ -825,6 +827,13 @@ function detailHTML(t){
   const rows = [["Email", t.email||"—"],["Paid", `${money(t.amount)} at ${fmtTime(t.paid_at)}`],["Placement", f.placement||"—"],["Health", f.complete ? (f.flagged ? `<span class="flag">Flagged</span> — allergies/skin: ${f.allergies}, medical: ${f.medical}${f.note? " — "+esc(f.note):""}` : "No concerns declared") : "Form not done"],["Photos", f.complete ? (f.photo?"Yes":"No") : "—"],["Marketing", f.complete ? (f.marketing?"Opted in":"No") : "—"],["Signed", f.complete ? `${esc(f.signature)} at ${fmtTime(f.signed_at)}` : "—"]];
   const refundBtn = ["queued","checked_in","no_show"].includes(t.status) ? `<div style="grid-column:1/-1;margin-top:6px"><button class="btn danger sm" onclick="refund('${t.id}')">Refund ${money(t.amount)} and remove from queue</button></div>` : "";
   return rows.map(([k,v])=>`<span>${k}</span><b>${v}</b>`).join("") + refundBtn;
+}
+async function selfCheckIn(t){
+  if(Store.settings.paused){ toast("Queue's paused right now, see the counter"); render(); return; }
+  await Store.patchTicket(t.id, {status:"checked_in", checked_in_at: now(), priority: null, self_checked_in: true});
+  const pos = queueOrder().findIndex(x=>x.id===t.id)+1;
+  sms(t.phone, `You're in · ${t.ref}. #${pos} in line, about ${estWaitFor(pos)} min. Wander off, we'll text you when a chair's free.`);
+  render();
 }
 async function checkIn(t){
   const flagged = t.form && t.form.flagged;
@@ -955,6 +964,7 @@ function renderArtist(){
         <div class="spread"><span class="ref display" style="font-size:1.6rem">${esc(t.ref)}</span><span class="pill ${t.status==="assigned"?"coral":""}">${STATUS[t.status].label}</span></div>
         <div style="font-weight:700;font-size:1.1rem">${esc(t.name)}</div>
         <div class="picked">${t.designs.map(id=>`<span class="chip lg"><span class="thumb" style="${spritePos(id)}"></span>${id}</span>`).join("")}</div>
+        ${t.self_checked_in ? `<div class="status warn" style="padding:8px 10px"><div class="small"><b>Sight their ID.</b> They checked themselves in, nobody's seen it yet.</div></div>` : ""}
         <div class="det"><span>Placement</span><b>${esc(f.placement||"Not given, ask")}</b><span>Health</span><b>${f.complete ? (f.flagged ? `<span class="flag">Flagged</span> — ${esc(f.note||"see counter")}` : "No concerns declared") : "Form not done, check with counter"}</b><span>Photos</span><b>${f.complete ? (f.photo?"OK to photograph":"No photos") : "—"}</b></div>
         <div class="row" style="justify-content:flex-end"></div>
       </div>`);
