@@ -211,6 +211,10 @@ footer.site .links{display:flex;gap:14px}
 .det{font-size:.85rem;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;color:var(--bone-dim)}
 .det b{color:var(--bone);font-weight:600}
 .flag{color:var(--warn)}
+.warnbar{background:var(--warn);color:#1a1409;padding:10px 16px;font-size:.9rem;line-height:1.35;text-align:center}
+.warnbar.quiet{background:var(--ink-3);color:var(--bone-dim);font-size:.78rem}
+.warnbar b{font-weight:700}
+.linkbtn{text-decoration:underline;font-weight:700;color:inherit;padding:0}
 .synced{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--bone-faint)}
 .synced.on{color:var(--ok)}
 </style>
@@ -267,6 +271,8 @@ const Store = (() => {
   let backend = "local";
   let db = null;
   let sb = null;
+  let syncError = null;
+  let ready = false;
   const subs = new Set();
   let channel = null;
 
@@ -292,8 +298,12 @@ const Store = (() => {
       if(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase && window.supabase.createClient){
         sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
         backend = "supabase"; tickets = {};
-        const [tr, er] = await Promise.all([sb.from("hm_tickets").select("id,data"), sb.from("hm_event").select("data").eq("id","live").maybeSingle()]);
-        if(tr.error) throw tr.error;
+        let tr, er, lastErr;
+        for(let attempt=0; attempt<3; attempt++){
+          try{ [tr, er] = await Promise.all([sb.from("hm_tickets").select("id,data"), sb.from("hm_event").select("data").eq("id","live").maybeSingle()]); if(tr.error) throw tr.error; lastErr=null; break; }
+          catch(e){ lastErr=e; await new Promise(r=>setTimeout(r, 800*(attempt+1))); }
+        }
+        if(lastErr) throw lastErr;
         (tr.data||[]).forEach(r => { tickets[r.id] = Object.assign({id:r.id}, r.data); });
         if(er.data && er.data.data) settings = Object.assign({}, DEFAULT_SETTINGS, er.data.data);
         else await sb.from("hm_event").upsert({id:"live", data: settings});
@@ -307,10 +317,10 @@ const Store = (() => {
             if(p.new && p.new.id==="live"){ settings = Object.assign({}, DEFAULT_SETTINGS, p.new.data); emit(); }
           })
           .subscribe();
-        emit();
+        ready = true; emit();
         return;
       }
-    }catch(e){ console.warn("supabase unavailable, falling back", e); backend="local"; sb=null; localLoad(); }
+    }catch(e){ console.warn("supabase unavailable, falling back", e); backend="local"; sb=null; syncError = (e && e.message) || "no connection"; localLoad(); }
     // Claude artifact store (when hosted on claude.ai); resolves later, never on first run
     try{
       const got = window.claude && window.claude.use ? await window.claude.use("db") : null;
@@ -328,7 +338,7 @@ const Store = (() => {
         }, err => { console.warn("settings sub", err); });
       }
     }catch(e){ console.warn("db unavailable", e); }
-    emit();
+    ready = true; emit();
   }
 
   async function saveTicket(t){
@@ -366,7 +376,7 @@ const Store = (() => {
   return {
     init, saveTicket, patchTicket, saveSettings, clearTickets,
     subscribe(fn){ subs.add(fn); return () => subs.delete(fn); },
-    get tickets(){ return tickets; }, get settings(){ return settings; }, get backend(){ return backend; }
+    get tickets(){ return tickets; }, get settings(){ return settings; }, get backend(){ return backend; }, get syncError(){ return syncError; }, get ready(){ return ready; }
   };
 })();
 
@@ -443,13 +453,30 @@ function render(){
   if(prev){ const el=document.getElementById(prev); if(el && el!==document.activeElement) try{ el.focus({preventScroll:true}); }catch(e){} }
 }
 
+function inAppBrowser(){
+  const ua = navigator.userAgent || "";
+  return /FBAN|FBAV|Instagram|Messenger|Line\/|Snapchat|TikTok|MicroMessenger|Twitter|musical_ly|GSA\//i.test(ua);
+}
+function warnBar(){
+  const cfgOn = !!(window.HM_CONFIG && window.HM_CONFIG.supabaseUrl);
+  if(!cfgOn) return "";
+  if(inAppBrowser()){
+    const isIOS = /iPhone|iPad/i.test(navigator.userAgent);
+    return `<div class="warnbar"><b>Open this in your real browser.</b> ${isIOS ? "Tap the ··· or share icon and choose <b>Open in Safari</b>." : "Tap the ⋮ menu and choose <b>Open in Chrome</b>."} In-app browsers can't reach the live queue.</div>`;
+  }
+  if(Store.ready && Store.backend==="local"){
+    return `<div class="warnbar"><b>Not connected to the live queue.</b> Your ticket stays on this phone only. Check signal, then <button class="linkbtn" onclick="location.reload()">reload</button>.</div>`;
+  }
+  if(!Store.ready) return `<div class="warnbar quiet">Connecting to the live queue…</div>`;
+  return "";
+}
 function header(kind){
   const s = Store.settings;
   const sw = kind==="shop" ? "" : `<div class="switch">
       <a href="#counter" class="${route()==="counter"?"on":""}">Counter</a>
       <a href="#artist" class="${route()==="artist"?"on":""}">Artist</a>
     </div>`;
-  return `<header class="top wrap ${kind==="shop"?"":"wide"}">
+  return warnBar() + `<header class="top wrap ${kind==="shop"?"":"wide"}">
     <div class="logo"><span class="stamp">Hoochi<br>Mama</span>
       <div><div class="eyebrow">${esc(s.name)}</div>
       <div class="row" style="gap:6px;margin-top:3px">
